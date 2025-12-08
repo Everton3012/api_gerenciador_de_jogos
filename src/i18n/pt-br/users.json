@@ -1,0 +1,13 @@
+{
+    "EMAIL_IN_USE": "Email já está em uso",
+    "USER_NOT_FOUND": "Usuário com ID {id} não encontrado",
+    "CANNOT_CHANGE_OAUTH_EMAIL": "Não é possível alterar email de usuário OAuth",
+    "ALREADY_PREMIUM": "Usuário já possui plano premium",
+    "ALREADY_FREE": "Usuário já possui plano free",
+    "OAUTH_CANNOT_CHANGE_PASSWORD": "Usuário OAuth não pode alterar senha",
+    "WRONG_CURRENT_PASSWORD": "Senha atual incorreta",
+    "USER_CREATED": "Usuário criado com sucesso",
+    "USER_UPDATED": "Usuário atualizado com sucesso",
+    "USER_DELETED": "Usuário deletado com sucesso",
+    "PASSWORD_CHANGED": "Senha alterada com sucesso"
+  }

@@ -1,0 +1,9 @@
+{
+    "INTERNAL_SERVER_ERROR": "Erro interno do servidor",
+    "BAD_REQUEST": "Requisição inválida",
+    "UNAUTHORIZED": "Não autorizado",
+    "FORBIDDEN": "Acesso negado",
+    "NOT_FOUND": "Recurso não encontrado",
+    "VALIDATION_ERROR": "Erro de validação",
+    "SUCCESS": "Operação realizada com sucesso"
+  }
