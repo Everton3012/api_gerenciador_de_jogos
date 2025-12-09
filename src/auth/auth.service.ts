@@ -65,7 +65,7 @@ export class AuthService {
     return user;
   }
 
-  async validateOAuthUser(profile: any, provider: 'google' | 'facebook'): Promise<User> {
+  async validateOAuthUser(profile: any, provider: 'google' | 'facebook' | 'discord'): Promise<User> {
     const email = profile.emails?.[0]?.value || profile.email;
     
     if (!email) {
@@ -78,34 +78,70 @@ export class AuthService {
     if (user) {
       // Atualiza dados do provedor se necessário
       if (!user.provider || user.provider === UserProvider.LOCAL) {
-        // ✅ Correção: Mapeia string para enum
-        const userProvider = provider === 'google' ? UserProvider.GOOGLE : UserProvider.FACEBOOK;
+        // Mapeia string para enum
+        const userProvider = this.mapProviderToEnum(provider);
         
-        // ✅ Correção: Passa apenas os campos do UpdateUserDto
+        // Atualiza apenas campos permitidos
         await this.usersService.update(user.id, {
-          avatarUrl: profile.photos?.[0]?.value || profile.picture || null,
+          avatarUrl: profile.photos?.[0]?.value || profile.picture || profile.avatarUrl || null,
         });
         
-        // Atualiza provider e providerId manualmente (campos não estão no UpdateUserDto)
+        // Atualiza provider e providerId manualmente
         user.provider = userProvider;
-        user.providerId = profile.id;
+        user.providerId = profile.id || profile.providerId;
         user.emailVerified = true;
       }
     } else {
-      // ✅ Correção: Cria novo usuário com enum correto
-      const userProvider = provider === 'google' ? UserProvider.GOOGLE : UserProvider.FACEBOOK;
+      // Cria novo usuário com enum correto
+      const userProvider = this.mapProviderToEnum(provider);
       
       user = await this.usersService.create({
-        name: profile.displayName || profile.name || 'Usuário',
+        name: profile.displayName || profile.name || profile.username || 'Usuário',
         email,
         provider: userProvider,
-        providerId: profile.id,
-        avatarUrl: profile.photos?.[0]?.value || profile.picture || null,
+        providerId: profile.id || profile.providerId,
+        avatarUrl: profile.photos?.[0]?.value || profile.picture || profile.avatarUrl || null,
         emailVerified: true,
       });
     }
 
     return user;
+  }
+
+  // Novo método para login OAuth genérico (Google, Facebook, Discord)
+  async validateOAuthLogin(profile: any): Promise<{ access_token: string; refresh_token: string; user: any }> {
+    const provider = profile.provider as 'google' | 'facebook' | 'discord';
+    let user = await this.usersService.findByEmail(profile.email);
+
+    if (!user) {
+      // Criar novo usuário se não existir
+      const userProvider = this.mapProviderToEnum(provider);
+      
+      user = await this.usersService.create({
+        name: profile.username || profile.displayName || profile.name || 'Usuário',
+        email: profile.email,
+        provider: userProvider,
+        providerId: profile.providerId,
+        avatarUrl: profile.avatarUrl,
+        emailVerified: true,
+        password: undefined, // OAuth users não têm senha
+      });
+    } else if (user.provider !== this.mapProviderToEnum(provider) || user.providerId !== profile.providerId) {
+      // Atualizar informações do OAuth se necessário
+      await this.usersService.update(user.id, {
+        avatarUrl: profile.avatarUrl,
+      });
+      
+      user.provider = this.mapProviderToEnum(provider);
+      user.providerId = profile.providerId;
+    }
+
+    const tokens = await this.generateTokens(user);
+
+    return {
+      ...tokens,
+      user: this.sanitizeUser(user),
+    };
   }
 
   async generateTokens(user: User) {
@@ -149,5 +185,16 @@ export class AuthService {
   private sanitizeUser(user: User) {
     const { password, ...sanitized } = user;
     return sanitized;
+  }
+
+  // Helper method para mapear string para enum
+  private mapProviderToEnum(provider: 'google' | 'facebook' | 'discord'): UserProvider {
+    const providerMap = {
+      google: UserProvider.GOOGLE,
+      facebook: UserProvider.FACEBOOK,
+      discord: UserProvider.DISCORD,
+    };
+    
+    return providerMap[provider] || UserProvider.LOCAL;
   }
 }
