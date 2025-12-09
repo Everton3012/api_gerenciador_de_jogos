@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm'; // Adicione IsNull aqui
 import { I18nService } from 'nestjs-i18n';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
@@ -53,7 +53,13 @@ export class UsersService {
   }
 
   async findOne(id: string, lang?: string): Promise<User> {
-    const user = await this.usersRepository.findOne({ where: { id } });
+    const user = await this.usersRepository.findOne({ 
+      where: { 
+        id,
+        deletedAt: IsNull() // Adicione esta linha para filtrar usuários deletados
+      } 
+    });
+    
     if (!user) {
       throw new NotFoundException(
         await this.i18n.translate('users.USER_NOT_FOUND', {
@@ -89,8 +95,7 @@ export class UsersService {
 
   async remove(id: string, lang?: string): Promise<void> {
     const user = await this.findOne(id, lang);
-    user.isActive = false;
-    await this.usersRepository.save(user);
+    await this.usersRepository.softDelete(id); // Use softDelete em vez de modificar manualmente
   }
 
   async hardDelete(id: string, lang?: string): Promise<void> {
@@ -134,7 +139,22 @@ export class UsersService {
     newPassword: string,
     lang?: string,
   ): Promise<void> {
-    const user = await this.findOne(id, lang);
+    // Buscar usuário COM a senha (addSelect para incluir campo com select: false)
+    const user = await this.usersRepository
+      .createQueryBuilder('user')
+      .where('user.id = :id', { id })
+      .andWhere('user.deletedAt IS NULL')
+      .addSelect('user.password') // Adiciona o campo password que tem select: false
+      .getOne();
+    
+    if (!user) {
+      throw new NotFoundException(
+        await this.i18n.translate('users.USER_NOT_FOUND', {
+          lang,
+          args: { id },
+        }),
+      );
+    }
     
     if (!user.password) {
       throw new BadRequestException(

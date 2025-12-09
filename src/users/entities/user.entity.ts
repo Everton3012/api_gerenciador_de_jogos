@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, Index } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { UserProvider, UserRole, UserPlan } from '../enums';
 
@@ -61,6 +61,6 @@ export class User {
   @UpdateDateColumn({ type: 'timestamp' })
   updatedAt: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
-  deletedAt: Date | null;
+  @DeleteDateColumn({ type: 'timestamp' })
+  deletedAt?: Date;
 }
