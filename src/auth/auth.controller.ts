@@ -1,82 +1,143 @@
-import { Controller, Post, Body, Get, UseGuards, Req, Res, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+// src/auth/auth.controller.ts
+import { 
+  Controller, 
+  Post, 
+  Body, 
+  Get, 
+  UseGuards, 
+  Req, 
+  Res, 
+  HttpCode, 
+  HttpStatus 
+} from '@nestjs/common';
+import type { Request, Response } from 'express';
+import { 
+  ApiTags, 
+  ApiOperation, 
+  ApiResponse, 
+  ApiBearerAuth 
+} from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { FacebookAuthGuard } from './guards/facebook-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
+import { ConfigService } from '@nestjs/config';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Post('register')
   @ApiOperation({ summary: 'Registrar novo usuário' })
-  @ApiResponse({ status: 201, description: 'Usuário criado com sucesso', type: AuthResponseDto })
+  @ApiResponse({ 
+    status: 201, 
+    description: 'Usuário criado com sucesso', 
+    type: AuthResponseDto 
+  })
   @ApiResponse({ status: 409, description: 'Email já existe' })
-  async register(@Body() registerDto: RegisterDto) {
+  async register(@Body() registerDto: RegisterDto): Promise<AuthResponseDto> {
     return this.authService.register(registerDto);
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login com email e senha' })
-  @ApiResponse({ status: 200, description: 'Login realizado com sucesso', type: AuthResponseDto })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Login realizado com sucesso', 
+    type: AuthResponseDto 
+  })
   @ApiResponse({ status: 401, description: 'Credenciais inválidas' })
-  async login(@Body() loginDto: LoginDto) {
+  async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
     return this.authService.login(loginDto);
   }
 
   @Get('google')
   @UseGuards(GoogleAuthGuard)
   @ApiOperation({ summary: 'Iniciar login com Google' })
-  async googleAuth() {
-    // Guard redireciona para Google
+  @ApiResponse({ status: 302, description: 'Redireciona para Google OAuth' })
+  async googleAuth(): Promise<void> {
+    // Guard redireciona para Google automaticamente
   }
 
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
   @ApiOperation({ summary: 'Callback do Google OAuth' })
-  async googleAuthCallback(@CurrentUser() user: User, @Res() res) {
-    const tokens = await this.authService.generateTokens(user);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    res.redirect(`${frontendUrl}/auth/callback?token=${tokens.access_token}`);
+  @ApiResponse({ status: 302, description: 'Redireciona para frontend com tokens' })
+  async googleAuthCallback(
+    @Req() req: Request,
+    @Res() res: Response
+  ): Promise<void> {
+    try {
+      const tokens = await this.authService.validateOAuthLogin(req.user);
+      
+      const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+      
+      res.redirect(
+        `${frontendUrl}/auth/callback?access_token=${tokens.access_token}&refresh_token=${tokens.refresh_token}`
+      );
+    } catch (error) {
+      const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+      res.redirect(`${frontendUrl}/auth/error?message=${encodeURIComponent(error.message)}`);
+    }
   }
 
   @Get('facebook')
   @UseGuards(FacebookAuthGuard)
   @ApiOperation({ summary: 'Iniciar login com Facebook' })
-  async facebookAuth() {
-    // Guard redireciona para Facebook
+  @ApiResponse({ status: 302, description: 'Redireciona para Facebook OAuth' })
+  async facebookAuth(): Promise<void> {
+    // Guard redireciona para Facebook automaticamente
   }
 
   @Get('facebook/callback')
   @UseGuards(FacebookAuthGuard)
   @ApiOperation({ summary: 'Callback do Facebook OAuth' })
-  async facebookAuthCallback(@CurrentUser() user: User, @Res() res) {
-    const tokens = await this.authService.generateTokens(user);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    res.redirect(`${frontendUrl}/auth/callback?token=${tokens.access_token}`);
+  @ApiResponse({ status: 302, description: 'Redireciona para frontend com tokens' })
+  async facebookAuthCallback(
+    @Req() req: Request,
+    @Res() res: Response
+  ): Promise<void> {
+    try {
+      const tokens = await this.authService.validateOAuthLogin(req.user);
+      
+      const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+      
+      res.redirect(
+        `${frontendUrl}/auth/callback?access_token=${tokens.access_token}&refresh_token=${tokens.refresh_token}`
+      );
+    } catch (error) {
+      const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+      res.redirect(`${frontendUrl}/auth/error?message=${encodeURIComponent(error.message)}`);
+    }
   }
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Obter usuário autenticado' })
-  @ApiResponse({ status: 200, description: 'Usuário autenticado' })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Obter dados do usuário autenticado' })
+  @ApiResponse({ status: 200, description: 'Dados do usuário' })
+  @ApiResponse({ status: 401, description: 'Não autorizado' })
   async getProfile(@CurrentUser() user: User) {
     const { password, ...sanitized } = user;
     return sanitized;
   }
 
   @Post('refresh')
-  @ApiOperation({ summary: 'Renovar access token' })
-  async refresh(@Body('refresh_token') refreshToken: string) {
-    return this.authService.refreshToken(refreshToken);
+  @ApiOperation({ summary: 'Renovar access token usando refresh token' })
+  @ApiResponse({ status: 200, description: 'Token renovado com sucesso' })
+  @ApiResponse({ status: 401, description: 'Token inválido' })
+  async refresh(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.refreshToken(refreshTokenDto.refresh_token);
   }
 }
