@@ -1,3 +1,4 @@
+// src/auth/strategies/facebook.strategy.ts
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, Profile } from 'passport-facebook';
@@ -10,12 +11,20 @@ export class FacebookStrategy extends PassportStrategy(Strategy, 'facebook') {
     private configService: ConfigService,
     private authService: AuthService,
   ) {
+    const clientID = configService.get<string>('FACEBOOK_CLIENT_ID');
+    const clientSecret = configService.get<string>('FACEBOOK_CLIENT_SECRET');
+    const callbackURL = configService.get<string>('FACEBOOK_CALLBACK_URL');
+
+    if (!clientID || !clientSecret || !callbackURL) {
+      console.warn('Facebook OAuth credentials not configured. Facebook login will not work.');
+    }
+
     super({
-      clientID: configService.get('FACEBOOK_CLIENT_ID') || '',
-      clientSecret: configService.get('FACEBOOK_CLIENT_SECRET') || '',
-      callbackURL: configService.get('FACEBOOK_CALLBACK_URL') || '',
+      clientID: clientID || '',
+      clientSecret: clientSecret || '',
+      callbackURL: callbackURL || '',
       scope: ['email'],
-      profileFields: ['emails', 'name', 'picture.type(large)'],
+      profileFields: ['id', 'displayName', 'emails', 'photos'],
     });
   }
 
@@ -23,7 +32,7 @@ export class FacebookStrategy extends PassportStrategy(Strategy, 'facebook') {
     accessToken: string,
     refreshToken: string,
     profile: Profile,
-    done: (err: any, user: any, info?: any) => void,
+    done: (error: any, user?: any, info?: any) => void,
   ): Promise<any> {
     try {
       const user = await this.authService.validateOAuthUser(profile, 'facebook');

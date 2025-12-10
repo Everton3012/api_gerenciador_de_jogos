@@ -3,16 +3,27 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, Profile } from 'passport-discord';
 import { ConfigService } from '@nestjs/config';
+import { AuthService } from '../auth.service';
 
 @Injectable()
 export class DiscordStrategy extends PassportStrategy(Strategy, 'discord') {
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private authService: AuthService,
+  ) {
+    const clientID = configService.get<string>('DISCORD_CLIENT_ID');
+    const clientSecret = configService.get<string>('DISCORD_CLIENT_SECRET');
+    const callbackURL = configService.get<string>('DISCORD_CALLBACK_URL');
+
+    if (!clientID || !clientSecret || !callbackURL) {
+      console.warn('Discord OAuth credentials not configured. Discord login will not work.');
+    }
+
     super({
-      clientID: configService.get<string>('DISCORD_CLIENT_ID') || '',
-      clientSecret: configService.get<string>('DISCORD_CLIENT_SECRET') || '',
-      callbackURL: configService.get<string>('DISCORD_CALLBACK_URL') || '',
+      clientID: clientID || '',
+      clientSecret: clientSecret || '',
+      callbackURL: callbackURL || '',
       scope: ['identify', 'email'],
-      passReqToCallback: true,
     });
   }
 
@@ -20,17 +31,13 @@ export class DiscordStrategy extends PassportStrategy(Strategy, 'discord') {
     accessToken: string,
     refreshToken: string,
     profile: Profile,
+    done: (error: any, user?: any, info?: any) => void,
   ): Promise<any> {
-    const { id, username, email, avatar } = profile;
-    
-    return {
-      providerId: id,
-      username,
-      email: email || `${username}@discord.temp`,
-      avatarUrl: avatar 
-        ? `https://cdn.discordapp.com/avatars/${id}/${avatar}.png`
-        : null,
-      provider: 'discord',
-    };
+    try {
+      const user = await this.authService.validateOAuthUser(profile, 'discord');
+      done(null, user);
+    } catch (error) {
+      done(error, false);
+    }
   }
 }
