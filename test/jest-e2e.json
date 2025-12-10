@@ -1,23 +1,36 @@
 {
   "moduleFileExtensions": ["js", "json", "ts"],
-  "rootDir": ".",
+  "rootDir": "..",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
   "moduleNameMapper": {
-    "^src/(.*)$": "<rootDir>/../src/$1"
+    "^src/(.*)$": "<rootDir>/src/$1"
   },
   "collectCoverageFrom": [
-    "../src/**/*.ts",
-    "!../src/**/*.spec.ts",
-    "!../src/**/*.e2e-spec.ts",
-    "!../src/main.ts",
-    "!../src/**/*.module.ts",
-    "!../src/migrations/*.ts"
+    "src/**/*.{ts,js}",
+    "!src/**/*.spec.ts",
+    "!src/**/*.e2e-spec.ts",
+    "!src/main.ts",
+    "!src/**/*.module.ts",
+    "!src/**/*.interface.ts",
+    "!src/**/*.dto.ts",
+    "!src/**/*.entity.ts",
+    "!src/**/*.enum.ts",
+    "!src/migrations/**",
+    "!src/config/**",
+    "!src/**/*.decorator.ts"
   ],
-  "coverageDirectory": "./coverage",
+  "coverageDirectory": "./coverage-e2e",
+  "coverageReporters": ["text", "text-summary", "html", "lcov"],
+  "coveragePathIgnorePatterns": [
+    "/node_modules/",
+    "/test/",
+    "/dist/"
+  ],
   "testTimeout": 30000,
-  "maxWorkers": 1
+  "maxWorkers": 1,
+  "verbose": true
 }

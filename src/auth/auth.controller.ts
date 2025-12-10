@@ -25,6 +25,7 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { FacebookAuthGuard } from './guards/facebook-auth.guard';
+import { DiscordAuthGuard } from './guards/discord-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
 import { ConfigService } from '@nestjs/config';
@@ -122,6 +123,36 @@ export class AuthController {
     }
   }
 
+  @Get('discord')
+  @UseGuards(DiscordAuthGuard)
+  @ApiOperation({ summary: 'Iniciar login com Discord' })
+  @ApiResponse({ status: 302, description: 'Redireciona para Discord OAuth' })
+  async discordAuth(): Promise<void> {
+    // Guard redireciona para Discord automaticamente
+  }
+
+  @Get('discord/callback')
+  @UseGuards(DiscordAuthGuard)
+  @ApiOperation({ summary: 'Callback do Discord OAuth' })
+  @ApiResponse({ status: 302, description: 'Redireciona para frontend com tokens' })
+  async discordAuthCallback(
+    @Req() req: Request,
+    @Res() res: Response
+  ): Promise<void> {
+    try {
+      const tokens = await this.authService.validateOAuthLogin(req.user);
+      
+      const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+      
+      res.redirect(
+        `${frontendUrl}/auth/callback?access_token=${tokens.access_token}&refresh_token=${tokens.refresh_token}`
+      );
+    } catch (error) {
+      const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+      res.redirect(`${frontendUrl}/auth/error?message=${encodeURIComponent(error.message)}`);
+    }
+  }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -134,6 +165,7 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Renovar access token usando refresh token' })
   @ApiResponse({ status: 200, description: 'Token renovado com sucesso' })
   @ApiResponse({ status: 401, description: 'Token inválido' })

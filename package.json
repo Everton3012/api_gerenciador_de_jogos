@@ -25,7 +25,13 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:e2e:watch": "jest --config ./test/jest-e2e.json --watch",
+    "test:e2e:cov": "jest --config ./test/jest-e2e.json --coverage",
+    "test:e2e:debug": "jest --config ./test/jest-e2e.json --detectOpenHandles",
+    "test:e2e:full": "jest --config ./test/jest-e2e.json --coverage --detectOpenHandles --forceExit",
+    "test:e2e:ci": "jest --config ./test/jest-e2e.json --coverage --maxWorkers=2 --forceExit",
+     "test:e2e:cov:open": "npm run test:e2e:cov && start coverage-e2e/index.html"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

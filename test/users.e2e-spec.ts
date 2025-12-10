@@ -44,7 +44,7 @@ describe('Users API (E2E)', () => {
     }
     await app.close();
     // Adiciona timeout para garantir cleanup completo
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 1000));
   });
 
   describe('POST /users', () => {
