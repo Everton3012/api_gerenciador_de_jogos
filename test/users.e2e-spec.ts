@@ -342,13 +342,13 @@ describe('Users API (E2E)', () => {
         .expect(401);
     });
 
-    it('deve fazer upgrade para premium (requer admin)', () => {
+    it('deve fazer upgrade para pro (requer admin)', () => {
       return request(app.getHttpServer())
         .post(`/users/${userId}/upgrade`)
         .set('Authorization', `Bearer ${authToken}`)
         .expect(201)
         .expect((res) => {
-          expect(res.body.plan).toBe('premium');
+          expect(res.body.plan).toBe('pro');
         });
     });
 
