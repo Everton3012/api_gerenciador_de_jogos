@@ -1,13 +1,17 @@
 {
-    "EMAIL_IN_USE": "Email is already in use",
-    "USER_NOT_FOUND": "User with ID {id} not found",
-    "CANNOT_CHANGE_OAUTH_EMAIL": "Cannot change OAuth user email",
-    "ALREADY_PREMIUM": "User already has premium plan",
-    "ALREADY_FREE": "User already has free plan",
-    "OAUTH_CANNOT_CHANGE_PASSWORD": "OAuth user cannot change password",
-    "WRONG_CURRENT_PASSWORD": "Current password is incorrect",
-    "USER_CREATED": "User created successfully",
-    "USER_UPDATED": "User updated successfully",
-    "USER_DELETED": "User deleted successfully",
-    "PASSWORD_CHANGED": "Password changed successfully"
-  }
+  "EMAIL_IN_USE": "Email is already in use",
+  "USER_NOT_FOUND": "User with ID {id} not found",
+  "CANNOT_CHANGE_OAUTH_EMAIL": "Cannot change email for OAuth user",
+  "ALREADY_ON_PLAN": "User is already on {plan} plan",
+  "ALREADY_PREMIUM": "User already has premium plan",
+  "ALREADY_FREE": "User already has free plan",
+  "OAUTH_CANNOT_CHANGE_PASSWORD": "OAuth user cannot change password",
+  "WRONG_CURRENT_PASSWORD": "Current password is incorrect",
+  "ENTERPRISE_REQUIRES_ADMIN": "Only administrators can set Enterprise plan",
+  "USER_CREATED": "User created successfully",
+  "USER_UPDATED": "User updated successfully",
+  "USER_DELETED": "User deleted successfully",
+  "PASSWORD_CHANGED": "Password changed successfully",
+  "PLAN_UPGRADED": "Plan successfully upgraded to {plan}",
+  "PLAN_DOWNGRADED": "Plan successfully changed to {plan}"
+}

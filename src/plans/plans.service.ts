@@ -2,185 +2,215 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { I18nService } from 'nestjs-i18n';
 import { Plan } from './entities/plan.entity';
 import { User } from '../users/entities/user.entity';
 import { UserPlan } from '../users/enums';
 
 @Injectable()
 export class PlansService {
-  constructor(
-    @InjectRepository(Plan)
-    private plansRepository: Repository<Plan>,
-    @InjectRepository(User)
-    private usersRepository: Repository<User>,
-  ) {}
+    constructor(
+        @InjectRepository(Plan)
+        private plansRepository: Repository<Plan>,
+        @InjectRepository(User)
+        private usersRepository: Repository<User>,
+        private readonly i18n: I18nService,
+    ) { }
 
-  async findAll(): Promise<Plan[]> {
-    return this.plansRepository.find({
-      where: { isActive: true },
-      order: { price: 'ASC' },
-    });
-  }
-
-  async findOne(id: string): Promise<Plan> {
-    const plan = await this.plansRepository.findOne({
-      where: { id, isActive: true },
-    });
-
-    if (!plan) {
-      throw new NotFoundException(`Plano ${id} não encontrado`);
+    async findAll(): Promise<Plan[]> {
+        return this.plansRepository.find({
+            where: { isActive: true },
+            order: { price: 'ASC' },
+        });
     }
 
-    return plan;
-  }
+    async findOne(id: string, lang?: string): Promise<Plan> {
+        const plan = await this.plansRepository.findOne({
+            where: { id, isActive: true },
+        });
 
-  async getUserPlan(userId: string): Promise<Plan> {
-    const user = await this.usersRepository.findOne({
-      where: { id: userId },
-      select: ['id', 'plan'],
-    });
+        if (!plan) {
+            throw new NotFoundException(
+                await this.i18n.translate('plans.PLAN_NOT_FOUND', {
+                    lang,
+                    args: { id },
+                }),
+            );
+        }
 
-    if (!user) {
-      throw new NotFoundException(`Usuário ${userId} não encontrado`);
+        return plan;
     }
 
-    return this.findOne(user.plan);
-  }
+    async getUserPlan(userId: string, lang?: string): Promise<Plan> {
+        const user = await this.usersRepository.findOne({
+            where: { id: userId },
+            select: ['id', 'plan'],
+        });
 
-  async canCreateMatch(userId: string, currentMatchesThisMonth: number): Promise<boolean> {
-    const userPlan = await this.getUserPlan(userId);
-    const { maxMatchesPerMonth } = userPlan.features;
+        if (!user) {
+            throw new NotFoundException(
+                await this.i18n.translate('users.USER_NOT_FOUND', {
+                    lang,
+                    args: { id: userId },
+                }),
+            );
+        }
 
-    // null significa ilimitado
-    if (maxMatchesPerMonth === null) {
-      return true;
+        return this.findOne(user.plan, lang);
     }
 
-    return currentMatchesThisMonth < maxMatchesPerMonth;
-  }
+    async canCreateMatch(userId: string, currentMatchesThisMonth: number, lang?: string): Promise<boolean> {
+        const userPlan = await this.getUserPlan(userId, lang);
+        const { maxMatchesPerMonth } = userPlan.features;
 
-  async canCreateTournament(userId: string, currentTournamentsThisMonth: number): Promise<boolean> {
-    const userPlan = await this.getUserPlan(userId);
-    const { maxTournamentsPerMonth } = userPlan.features;
+        // null significa ilimitado
+        if (maxMatchesPerMonth === null) {
+            return true;
+        }
 
-    // null significa ilimitado
-    if (maxTournamentsPerMonth === null) {
-      return true;
+        return currentMatchesThisMonth < maxMatchesPerMonth;
     }
 
-    return currentTournamentsThisMonth < maxTournamentsPerMonth;
-  }
+    async canCreateTournament(userId: string, currentTournamentsThisMonth: number, lang?: string): Promise<boolean> {
+        const userPlan = await this.getUserPlan(userId, lang);
+        const { maxTournamentsPerMonth } = userPlan.features;
 
-  async checkFeatureAccess(userId: string, feature: string): Promise<boolean> {
-    const userPlan = await this.getUserPlan(userId);
+        // null significa ilimitado
+        if (maxTournamentsPerMonth === null) {
+            return true;
+        }
 
-    const featureMap = {
-      advancedStats: userPlan.features.advancedStats,
-      knockoutMode: userPlan.features.knockoutMode,
-      teamManagement: userPlan.features.teamManagement,
-      prioritySupport: userPlan.features.prioritySupport,
-    };
-
-    return featureMap[feature] || false;
-  }
-
-  async validateMatchCreation(userId: string, currentMatchesThisMonth: number): Promise<void> {
-    const canCreate = await this.canCreateMatch(userId, currentMatchesThisMonth);
-
-    if (!canCreate) {
-      const userPlan = await this.getUserPlan(userId);
-      throw new ForbiddenException(
-        `Você atingiu o limite de ${userPlan.features.maxMatchesPerMonth} partidas por mês no plano ${userPlan.name}. Faça upgrade para criar mais partidas.`
-      );
+        return currentTournamentsThisMonth < maxTournamentsPerMonth;
     }
-  }
 
-  async validateTournamentCreation(userId: string, currentTournamentsThisMonth: number): Promise<void> {
-    const canCreate = await this.canCreateTournament(userId, currentTournamentsThisMonth);
+    async checkFeatureAccess(userId: string, feature: string, lang?: string): Promise<boolean> {
+        const userPlan = await this.getUserPlan(userId, lang);
 
-    if (!canCreate) {
-      const userPlan = await this.getUserPlan(userId);
-      throw new ForbiddenException(
-        `Você atingiu o limite de ${userPlan.features.maxTournamentsPerMonth} torneios por mês no plano ${userPlan.name}. Faça upgrade para criar mais torneios.`
-      );
+        const featureMap = {
+            advancedStats: userPlan.features.advancedStats,
+            knockoutMode: userPlan.features.knockoutMode,
+            teamManagement: userPlan.features.teamManagement,
+            prioritySupport: userPlan.features.prioritySupport,
+        };
+
+        return featureMap[feature] || false;
     }
-  }
 
-  async validateFeatureAccess(userId: string, feature: string): Promise<void> {
-    const hasAccess = await this.checkFeatureAccess(userId, feature);
+    async validateMatchCreation(userId: string, currentMatchesThisMonth: number, lang?: string): Promise<void> {
+        const canCreate = await this.canCreateMatch(userId, currentMatchesThisMonth, lang);
 
-    if (!hasAccess) {
-      const userPlan = await this.getUserPlan(userId);
-      throw new ForbiddenException(
-        `A funcionalidade "${feature}" não está disponível no plano ${userPlan.name}. Faça upgrade para ter acesso.`
-      );
+        if (!canCreate) {
+            const userPlan = await this.getUserPlan(userId, lang);
+            throw new ForbiddenException(
+                await this.i18n.translate('plans.MATCH_LIMIT_REACHED', {
+                    lang,
+                    args: {
+                        limit: userPlan.features.maxMatchesPerMonth,
+                        plan: userPlan.name,
+                    },
+                }),
+            );
+        }
     }
-  }
 
-  async getPlanLimits(userId: string): Promise<{
-    plan: string;
-    price: number;
-    features: {
-      maxMatchesPerMonth: number | null;
-      maxTournamentsPerMonth: number | null;
-      advancedStats: boolean;
-      knockoutMode: boolean;
-      teamManagement: boolean;
-      prioritySupport: boolean;
-    };
-    usage?: {
-      matchesThisMonth?: number;
-      tournamentsThisMonth?: number;
-    };
-  }> {
-    const userPlan = await this.getUserPlan(userId);
+    async validateTournamentCreation(userId: string, currentTournamentsThisMonth: number, lang?: string): Promise<void> {
+        const canCreate = await this.canCreateTournament(userId, currentTournamentsThisMonth, lang);
 
-    return {
-      plan: userPlan.name,
-      price: userPlan.price,
-      features: userPlan.features,
-      usage: {
-        matchesThisMonth: 0, // TODO: Buscar do banco quando implementar
-        tournamentsThisMonth: 0, // TODO: Buscar do banco quando implementar
-      },
-    };
-  }
+        if (!canCreate) {
+            const userPlan = await this.getUserPlan(userId, lang);
+            throw new ForbiddenException(
+                await this.i18n.translate('plans.TOURNAMENT_LIMIT_REACHED', {
+                    lang,
+                    args: {
+                        limit: userPlan.features.maxTournamentsPerMonth,
+                        plan: userPlan.name,
+                    },
+                }),
+            );
+        }
+    }
 
-  async comparePlans(): Promise<Array<{
-    id: string;
-    name: string;
-    price: number;
-    features: any;
-    recommended?: boolean;
-  }>> {
-    const plans = await this.findAll();
+    async validateFeatureAccess(userId: string, feature: string, lang?: string): Promise<void> {
+        const hasAccess = await this.checkFeatureAccess(userId, feature, lang);
 
-    return plans.map((plan) => ({
-      id: plan.id,
-      name: plan.name,
-      price: plan.price,
-      features: plan.features,
-      recommended: plan.id === UserPlan.PRO, // PRO é o recomendado
-    }));
-  }
+        if (!hasAccess) {
+            const userPlan = await this.getUserPlan(userId, lang);
+            throw new ForbiddenException(
+                await this.i18n.translate('plans.FEATURE_NOT_AVAILABLE', {
+                    lang,
+                    args: {
+                        feature,
+                        plan: userPlan.name,
+                    },
+                }),
+            );
+        }
+    }
 
-  async getUpgradeOptions(userId: string): Promise<Plan[]> {
-    const currentPlan = await this.getUserPlan(userId);
-    const allPlans = await this.findAll();
+    async getPlanLimits(userId: string, lang?: string): Promise<{
+        plan: string;
+        price: number;
+        features: {
+            maxMatchesPerMonth: number | null;
+            maxTournamentsPerMonth: number | null;
+            advancedStats: boolean;
+            knockoutMode: boolean;
+            teamManagement: boolean;
+            prioritySupport: boolean;
+        };
+        usage?: {
+            matchesThisMonth?: number;
+            tournamentsThisMonth?: number;
+        };
+    }> {
+        const userPlan = await this.getUserPlan(userId, lang);
 
-    const planOrder = {
-      [UserPlan.FREE]: 0,
-      [UserPlan.BASIC]: 1,
-      [UserPlan.PRO]: 2,
-      [UserPlan.ENTERPRISE]: 3,
-    };
+        return {
+            plan: userPlan.name,
+            price: userPlan.price,
+            features: userPlan.features,
+            usage: {
+                matchesThisMonth: 0, // TODO: Buscar do banco quando implementar
+                tournamentsThisMonth: 0, // TODO: Buscar do banco quando implementar
+            },
+        };
+    }
 
-    const currentPlanOrder = planOrder[currentPlan.id];
+    async comparePlans(): Promise<Array<{
+        id: string;
+        name: string;
+        price: number;
+        features: any;
+        recommended?: boolean;
+    }>> {
+        const plans = await this.findAll();
 
-    // Retornar planos superiores ao atual
-    return allPlans.filter(plan => {
-      const planOrderValue = planOrder[plan.id];
-      return planOrderValue > currentPlanOrder;
-    });
-  }
+        return plans.map((plan) => ({
+            id: plan.id,
+            name: plan.name,
+            price: plan.price,
+            features: plan.features,
+            recommended: plan.id === UserPlan.PRO,
+        }));
+    }
+
+    async getUpgradeOptions(userId: string, lang?: string): Promise<Plan[]> {
+        const currentPlan = await this.getUserPlan(userId, lang);
+        const allPlans = await this.findAll();
+
+        const planOrder = {
+            [UserPlan.FREE]: 0,
+            [UserPlan.BASIC]: 1,
+            [UserPlan.PRO]: 2,
+            [UserPlan.ENTERPRISE]: 3,
+        };
+
+        const currentPlanOrder = planOrder[currentPlan.id];
+
+        // Retornar planos superiores ao atual
+        return allPlans.filter(plan => {
+            const planOrderValue = planOrder[plan.id];
+            return planOrderValue > currentPlanOrder;
+        });
+    }
 }

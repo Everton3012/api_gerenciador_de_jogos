@@ -14,7 +14,7 @@ export class UsersService {
     @InjectRepository(User)
     private usersRepository: Repository<User>,
     private readonly i18n: I18nService,
-  ) {}
+  ) { }
 
   async create(createUserDto: CreateUserDto, lang?: string): Promise<User> {
     // Verifica se o email já existe
@@ -37,8 +37,8 @@ export class UsersService {
     const user = this.usersRepository.create({
       ...createUserDto,
       password: hashedPassword,
-      provider: createUserDto.provider as UserProvider, 
-      role: createUserDto.role as UserRole, 
+      provider: createUserDto.provider as UserProvider,
+      role: createUserDto.role as UserRole,
       plan: createUserDto.plan as UserPlan || UserPlan.FREE, // Default: FREE
     });
 
@@ -53,13 +53,13 @@ export class UsersService {
   }
 
   async findOne(id: string, lang?: string): Promise<User> {
-    const user = await this.usersRepository.findOne({ 
-      where: { 
+    const user = await this.usersRepository.findOne({
+      where: {
         id,
         deletedAt: IsNull()
-      } 
+      }
     });
-    
+
     if (!user) {
       throw new NotFoundException(
         await this.i18n.translate('users.USER_NOT_FOUND', {
@@ -72,7 +72,7 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return await this.usersRepository.findOne({ 
+    return await this.usersRepository.findOne({
       where: { email },
       select: ['id', 'name', 'email', 'password', 'provider', 'providerId', 'role', 'plan', 'isActive', 'emailVerified']
     });
@@ -80,7 +80,7 @@ export class UsersService {
 
   async update(id: string, updateUserDto: UpdateUserDto, lang?: string): Promise<User> {
     const user = await this.findOne(id, lang);
-    
+
     if (user.provider !== UserProvider.LOCAL) {
       if (updateUserDto['email']) {
         throw new BadRequestException(
@@ -88,7 +88,7 @@ export class UsersService {
         );
       }
     }
-    
+
     Object.assign(user, updateUserDto);
     return await this.usersRepository.save(user);
   }
@@ -106,16 +106,16 @@ export class UsersService {
   // Atualizar plano para qualquer nível
   async changePlan(id: string, newPlan: UserPlan, lang?: string): Promise<User> {
     const user = await this.findOne(id, lang);
-    
+
     if (user.plan === newPlan) {
       throw new BadRequestException(
-        await this.i18n.translate('users.ALREADY_ON_PLAN', { 
+        await this.i18n.translate('users.ALREADY_ON_PLAN', {
           lang,
           args: { plan: newPlan }
         }),
       );
     }
-    
+
     user.plan = newPlan;
     return await this.usersRepository.save(user);
   }
@@ -140,14 +140,14 @@ export class UsersService {
 
   async upgradeToEnterprise(id: string, lang?: string): Promise<User> {
     const user = await this.findOne(id, lang);
-    
+
     // Apenas admins podem definir plano Enterprise
     if (user.role !== UserRole.ADMIN) {
       throw new BadRequestException(
         await this.i18n.translate('users.ENTERPRISE_REQUIRES_ADMIN', { lang }),
       );
     }
-    
+
     return this.changePlan(id, UserPlan.ENTERPRISE, lang);
   }
 
@@ -167,7 +167,7 @@ export class UsersService {
       .andWhere('user.deletedAt IS NULL')
       .addSelect('user.password')
       .getOne();
-    
+
     if (!user) {
       throw new NotFoundException(
         await this.i18n.translate('users.USER_NOT_FOUND', {
@@ -176,20 +176,20 @@ export class UsersService {
         }),
       );
     }
-    
+
     if (!user.password) {
       throw new BadRequestException(
         await this.i18n.translate('users.OAUTH_CANNOT_CHANGE_PASSWORD', { lang }),
       );
     }
-    
+
     const isValidPassword = await this.validatePassword(oldPassword, user.password);
     if (!isValidPassword) {
       throw new BadRequestException(
         await this.i18n.translate('users.WRONG_CURRENT_PASSWORD', { lang }),
       );
     }
-    
+
     user.password = await bcrypt.hash(newPassword, 10);
     await this.usersRepository.save(user);
   }
@@ -197,7 +197,7 @@ export class UsersService {
   // Verificar se usuário pode executar ação baseada no plano
   async canPerformAction(userId: string, action: string): Promise<boolean> {
     const user = await this.findOne(userId);
-    
+
     // Mapeamento de permissões por plano
     const permissions = {
       [UserPlan.FREE]: ['basic'],
@@ -205,7 +205,7 @@ export class UsersService {
       [UserPlan.PRO]: ['basic', 'knockout', 'advanced_stats', 'team_management'],
       [UserPlan.ENTERPRISE]: ['basic', 'knockout', 'advanced_stats', 'team_management', 'priority_support'],
     };
-    
+
     return permissions[user.plan]?.includes(action) || false;
   }
 
@@ -215,14 +215,14 @@ export class UsersService {
     maxTournamentsPerMonth: number | null;
   }> {
     const user = await this.findOne(userId);
-    
+
     const limits = {
       [UserPlan.FREE]: { maxMatchesPerMonth: 10, maxTournamentsPerMonth: 1 },
       [UserPlan.BASIC]: { maxMatchesPerMonth: 50, maxTournamentsPerMonth: 5 },
       [UserPlan.PRO]: { maxMatchesPerMonth: null, maxTournamentsPerMonth: null },
       [UserPlan.ENTERPRISE]: { maxMatchesPerMonth: null, maxTournamentsPerMonth: null },
     };
-    
+
     return limits[user.plan];
   }
 }

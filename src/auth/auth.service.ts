@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { I18nService } from 'nestjs-i18n';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
@@ -14,17 +15,20 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private readonly i18n: I18nService,
   ) {}
 
-  async register(registerDto: RegisterDto) {
+  async register(registerDto: RegisterDto, lang?: string) {
     // Verifica se email já existe
     const existingUser = await this.usersService.findByEmail(registerDto.email);
     if (existingUser) {
-      throw new ConflictException('Email já está em uso');
+      throw new ConflictException(
+        await this.i18n.translate('auth.EMAIL_ALREADY_EXISTS', { lang }),
+      );
     }
 
     // Cria usuário
-    const user = await this.usersService.create(registerDto);
+    const user = await this.usersService.create(registerDto, lang);
 
     // Gera tokens
     const tokens = await this.generateTokens(user);
@@ -35,11 +39,13 @@ export class AuthService {
     };
   }
 
-  async login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto, lang?: string) {
     // Valida usuário
     const user = await this.validateUser(loginDto.email, loginDto.password);
     if (!user) {
-      throw new UnauthorizedException('Credenciais inválidas');
+      throw new UnauthorizedException(
+        await this.i18n.translate('auth.INVALID_CREDENTIALS', { lang }),
+      );
     }
 
     // Gera tokens
@@ -65,11 +71,13 @@ export class AuthService {
     return user;
   }
 
-  async validateOAuthUser(profile: any, provider: 'google' | 'facebook' | 'discord'): Promise<User> {
+  async validateOAuthUser(profile: any, provider: 'google' | 'facebook' | 'discord', lang?: string): Promise<User> {
     const email = profile.emails?.[0]?.value || profile.email;
     
     if (!email) {
-      throw new UnauthorizedException('Email não fornecido pelo provedor');
+      throw new UnauthorizedException(
+        await this.i18n.translate('auth.EMAIL_NOT_PROVIDED', { lang }),
+      );
     }
 
     // Busca usuário existente
@@ -84,7 +92,7 @@ export class AuthService {
         // Atualiza apenas campos permitidos
         await this.usersService.update(user.id, {
           avatarUrl: profile.photos?.[0]?.value || profile.picture || profile.avatarUrl || null,
-        });
+        }, lang);
         
         // Atualiza provider e providerId manualmente
         user.provider = userProvider;
@@ -102,14 +110,14 @@ export class AuthService {
         providerId: profile.id || profile.providerId,
         avatarUrl: profile.photos?.[0]?.value || profile.picture || profile.avatarUrl || null,
         emailVerified: true,
-      });
+      }, lang);
     }
 
     return user;
   }
 
   // Novo método para login OAuth genérico (Google, Facebook, Discord)
-  async validateOAuthLogin(profile: any): Promise<{ access_token: string; refresh_token: string; user: any }> {
+  async validateOAuthLogin(profile: any, lang?: string): Promise<{ access_token: string; refresh_token: string; user: any }> {
     const provider = profile.provider as 'google' | 'facebook' | 'discord';
     let user = await this.usersService.findByEmail(profile.email);
 
@@ -125,12 +133,12 @@ export class AuthService {
         avatarUrl: profile.avatarUrl,
         emailVerified: true,
         password: undefined, // OAuth users não têm senha
-      });
+      }, lang);
     } else if (user.provider !== this.mapProviderToEnum(provider) || user.providerId !== profile.providerId) {
       // Atualizar informações do OAuth se necessário
       await this.usersService.update(user.id, {
         avatarUrl: profile.avatarUrl,
-      });
+      }, lang);
       
       user.provider = this.mapProviderToEnum(provider);
       user.providerId = profile.providerId;
@@ -169,16 +177,18 @@ export class AuthService {
     };
   }
 
-  async refreshToken(refreshToken: string) {
+  async refreshToken(refreshToken: string, lang?: string) {
     try {
       const payload = await this.jwtService.verifyAsync(refreshToken, {
         secret: this.configService.get('JWT_REFRESH_SECRET') || this.configService.get('JWT_SECRET'),
       });
 
-      const user = await this.usersService.findOne(payload.sub);
+      const user = await this.usersService.findOne(payload.sub, lang);
       return this.generateTokens(user);
     } catch (error) {
-      throw new UnauthorizedException('Token inválido');
+      throw new UnauthorizedException(
+        await this.i18n.translate('auth.INVALID_TOKEN', { lang }),
+      );
     }
   }
 

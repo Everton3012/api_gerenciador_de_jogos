@@ -1,0 +1,10 @@
+{
+    "PLAN_NOT_FOUND": "Plano {id} não encontrado",
+    "MATCH_LIMIT_REACHED": "Você atingiu o limite de {limit} partidas por mês no plano {plan}. Faça upgrade para criar mais partidas.",
+    "TOURNAMENT_LIMIT_REACHED": "Você atingiu o limite de {limit} torneios por mês no plano {plan}. Faça upgrade para criar mais torneios.",
+    "FEATURE_NOT_AVAILABLE": "A funcionalidade \"{feature}\" não está disponível no plano {plan}. Faça upgrade para ter acesso.",
+    "FREE_PLAN": "Plano Gratuito",
+    "BASIC_PLAN": "Plano Básico",
+    "PRO_PLAN": "Plano Pro",
+    "ENTERPRISE_PLAN": "Plano Enterprise"
+}

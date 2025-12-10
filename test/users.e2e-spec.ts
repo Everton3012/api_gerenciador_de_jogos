@@ -38,13 +38,21 @@ describe('Users API (E2E)', () => {
   });
 
   afterAll(async () => {
-    await dataSource.query('DELETE FROM users');
-    if (dataSource.isInitialized) {
-      await dataSource.destroy();
+    try {
+      await dataSource.query('DELETE FROM users');
+      
+      if (dataSource?.isInitialized) {
+        await dataSource.destroy();
+      }
+    } catch (error) {
+      console.error('Erro no cleanup do banco:', error);
+    } finally {
+      if (app) {
+        await app.close();
+      }
+      // Aguardar cleanup completo
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
-    await app.close();
-    // Adiciona timeout para garantir cleanup completo
-    await new Promise(resolve => setTimeout(resolve, 1000));
   });
 
   describe('POST /users', () => {
@@ -268,7 +276,6 @@ describe('Users API (E2E)', () => {
     });
 
     it('deve alterar a senha com sucesso', async () => {
-      // Criar um novo usuário para este teste específico
       await dataSource.query("DELETE FROM users WHERE email = 'password-test@test.com'");
       
       await request(app.getHttpServer())
@@ -302,7 +309,6 @@ describe('Users API (E2E)', () => {
           expect(res.body).toHaveProperty('message');
         });
 
-      // Verificar se pode fazer login com a nova senha
       await request(app.getHttpServer())
         .post('/auth/login')
         .send({
@@ -389,7 +395,6 @@ describe('Users API (E2E)', () => {
     let deletedUserId: string;
 
     beforeAll(async () => {
-      // Criar um usuário específico para testar delete
       await dataSource.query("DELETE FROM users WHERE email = 'delete-test@test.com'");
       
       const createResponse = await request(app.getHttpServer())
@@ -418,7 +423,6 @@ describe('Users API (E2E)', () => {
     });
 
     it('deve retornar 404 para usuário já deletado', async () => {
-      // Esperar um pouco para garantir que o soft delete foi processado
       await new Promise(resolve => setTimeout(resolve, 100));
       
       await request(app.getHttpServer())

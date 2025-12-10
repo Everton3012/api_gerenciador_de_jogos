@@ -30,12 +30,20 @@ describe('Auth API (E2E)', () => {
   });
 
   afterAll(async () => {
-    await dataSource.query('DELETE FROM users');
-    if (dataSource?.isInitialized) {
-      await dataSource.destroy();
-    }
-    if (app) {
-      await app.close();
+    try {
+      await dataSource.query('DELETE FROM users');
+      
+      if (dataSource?.isInitialized) {
+        await dataSource.destroy();
+      }
+    } catch (error) {
+      console.error('Erro no cleanup:', error);
+    } finally {
+      if (app) {
+        await app.close();
+      }
+      // Aguardar cleanup completo
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
   });
 

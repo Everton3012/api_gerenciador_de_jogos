@@ -1,13 +1,17 @@
 {
-    "EMAIL_IN_USE": "El correo electrónico ya está en uso",
-    "USER_NOT_FOUND": "Usuario con ID {id} no encontrado",
-    "CANNOT_CHANGE_OAUTH_EMAIL": "No se puede cambiar el correo del usuario OAuth",
-    "ALREADY_PREMIUM": "El usuario ya tiene plan premium",
-    "ALREADY_FREE": "El usuario ya tiene plan gratuito",
-    "OAUTH_CANNOT_CHANGE_PASSWORD": "Usuario OAuth no puede cambiar contraseña",
-    "WRONG_CURRENT_PASSWORD": "Contraseña actual incorrecta",
-    "USER_CREATED": "Usuario creado exitosamente",
-    "USER_UPDATED": "Usuario actualizado exitosamente",
-    "USER_DELETED": "Usuario eliminado exitosamente",
-    "PASSWORD_CHANGED": "Contraseña cambiada exitosamente"
-  }
+  "EMAIL_IN_USE": "El correo electrónico ya está en uso",
+  "USER_NOT_FOUND": "Usuario con ID {id} no encontrado",
+  "CANNOT_CHANGE_OAUTH_EMAIL": "No se puede cambiar el correo electrónico del usuario OAuth",
+  "ALREADY_ON_PLAN": "El usuario ya está en el plan {plan}",
+  "ALREADY_PREMIUM": "El usuario ya tiene plan premium",
+  "ALREADY_FREE": "El usuario ya tiene plan gratuito",
+  "OAUTH_CANNOT_CHANGE_PASSWORD": "El usuario OAuth no puede cambiar la contraseña",
+  "WRONG_CURRENT_PASSWORD": "La contraseña actual es incorrecta",
+  "ENTERPRISE_REQUIRES_ADMIN": "Solo los administradores pueden establecer el plan Enterprise",
+  "USER_CREATED": "Usuario creado exitosamente",
+  "USER_UPDATED": "Usuario actualizado exitosamente",
+  "USER_DELETED": "Usuario eliminado exitosamente",
+  "PASSWORD_CHANGED": "Contraseña cambiada exitosamente",
+  "PLAN_UPGRADED": "Plan actualizado exitosamente a {plan}",
+  "PLAN_DOWNGRADED": "Plan cambiado exitosamente a {plan}"
+}

@@ -20,10 +20,10 @@ export class User {
   @Exclude()
   password: string | null;
 
-  @Column({ 
-    type: 'enum', 
-    enum: UserProvider, 
-    default: UserProvider.LOCAL 
+  @Column({
+    type: 'enum',
+    enum: UserProvider,
+    default: UserProvider.LOCAL
   })
   provider: UserProvider;
 
@@ -40,17 +40,17 @@ export class User {
   @Index()
   isActive: boolean;
 
-  @Column({ 
-    type: 'enum', 
-    enum: UserRole, 
-    default: UserRole.USER 
+  @Column({
+    type: 'enum',
+    enum: UserRole,
+    default: UserRole.USER
   })
   role: UserRole;
 
-  @Column({ 
-    type: 'enum', 
-    enum: UserPlan, 
-    default: UserPlan.FREE 
+  @Column({
+    type: 'enum',
+    enum: UserPlan,
+    default: UserPlan.FREE
   })
   @Index()
   plan: UserPlan;

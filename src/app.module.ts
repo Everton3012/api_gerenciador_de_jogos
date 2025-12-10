@@ -10,7 +10,7 @@ import { I18nConfigModule } from './i18n/I18n.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),I18nConfigModule,
+    ConfigModule.forRoot({ isGlobal: true }), I18nConfigModule,
     DatabaseModule,
     UsersModule,
     AuthModule,
@@ -19,4 +19,4 @@ import { I18nConfigModule } from './i18n/I18n.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
