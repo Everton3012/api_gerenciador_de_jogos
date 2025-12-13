@@ -7,6 +7,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { PlansModule } from './plans/plans.module';
 import { I18nConfigModule } from './i18n/I18n.module';
+import { MatchesModule } from './matches/matches.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { I18nConfigModule } from './i18n/I18n.module';
     UsersModule,
     AuthModule,
     PlansModule,
+    MatchesModule
   ],
   controllers: [AppController],
   providers: [AppService],

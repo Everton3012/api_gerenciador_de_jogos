@@ -1,0 +1,10 @@
+{
+    "INVALID_PLAYERS": "Uno o más jugadores son inválidos",
+    "MATCH_NOT_FOUND": "Partida {id} no encontrada",
+    "TEAMS_ALREADY_CREATED": "Esta partida ya tiene equipos creados",
+    "MATCH_ALREADY_STARTED": "Esta partida ya ha comenzado",
+    "INVALID_TEAM_COUNT": "Número de equipos inválido. Esperado: {expected}, Recibido: {received}",
+    "PLAYERS_NOT_IN_MATCH": "Uno o más jugadores no pertenecen a esta partida",
+    "DUPLICATE_PLAYERS": "No se permiten jugadores duplicados",
+    "MISSING_PLAYERS": "Todos los jugadores de la partida deben estar en un equipo"
+}

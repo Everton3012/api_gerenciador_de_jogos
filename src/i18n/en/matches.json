@@ -1,0 +1,10 @@
+{
+    "INVALID_PLAYERS": "One or more players are invalid",
+    "MATCH_NOT_FOUND": "Match {id} not found",
+    "TEAMS_ALREADY_CREATED": "This match already has teams created",
+    "MATCH_ALREADY_STARTED": "This match has already started",
+    "INVALID_TEAM_COUNT": "Invalid team count. Expected: {expected}, Received: {received}",
+    "PLAYERS_NOT_IN_MATCH": "One or more players do not belong to this match",
+    "DUPLICATE_PLAYERS": "Duplicate players are not allowed",
+    "MISSING_PLAYERS": "All match players must be in a team"
+}

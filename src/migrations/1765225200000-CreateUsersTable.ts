@@ -8,11 +8,11 @@ export class CreateUsersTable1765225200000 implements MigrationInterface {
         await queryRunner.query(`
             CREATE TYPE "public"."users_provider_enum" AS ENUM('local', 'google', 'facebook')
         `);
-        
+
         await queryRunner.query(`
             CREATE TYPE "public"."users_role_enum" AS ENUM('user', 'admin')
         `);
-        
+
         await queryRunner.query(`
             CREATE TYPE "public"."users_plan_enum" AS ENUM('free', 'premium')
         `);
@@ -43,15 +43,15 @@ export class CreateUsersTable1765225200000 implements MigrationInterface {
         await queryRunner.query(`
             CREATE INDEX "IDX_97672ac88f789774dd47f7c8be" ON "users" ("email")
         `);
-        
+
         await queryRunner.query(`
             CREATE INDEX "IDX_ae9a93b13bce1425823c8ecd07" ON "users" ("provider", "providerId")
         `);
-        
+
         await queryRunner.query(`
             CREATE INDEX "IDX_409a0298fdd86a6495e23c25c6" ON "users" ("isActive")
         `);
-        
+
         await queryRunner.query(`
             CREATE INDEX "IDX_4159e9a8cbcd02fbcf49ef6075" ON "users" ("plan")
         `);
