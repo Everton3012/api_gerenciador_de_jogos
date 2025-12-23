@@ -39,37 +39,64 @@ export class AuthService {
     };
   }
 
-  async login(loginDto: LoginDto, lang?: string) {
-    // Valida usuário
-    const user = await this.validateUser(loginDto.email, loginDto.password);
-    if (!user) {
-      throw new UnauthorizedException(
-        await this.i18n.translate('auth.INVALID_CREDENTIALS', { lang }),
-      );
-    }
+// src/auth/auth.service.ts
+async login(loginDto: LoginDto, lang?: string) {
+  console.log('🔍 DEBUG - Tentativa de login:', loginDto.email);
+  console.log('🔍 DEBUG - Dados recebidos:', { email: loginDto.email, hasPassword: !!loginDto.password });
 
-    // Gera tokens
-    const tokens = await this.generateTokens(user);
+  try {
+      // Valida usuário
+      const user = await this.validateUser(loginDto.email, loginDto.password);
+      console.log('🔍 DEBUG - Usuário encontrado:', user ? 'SIM' : 'NÃO');
 
-    return {
-      ...tokens,
-      user: this.sanitizeUser(user),
-    };
+      if (!user) {
+          console.log('❌ ERRO: Credenciais inválidas');
+          throw new UnauthorizedException(
+              await this.i18n.translate('auth.INVALID_CREDENTIALS', { lang }),
+          );
+      }
+
+      console.log('✅ Usuário válido, gerando tokens...');
+
+      // Gera tokens
+      const tokens = await this.generateTokens(user);
+
+      return {
+          ...tokens,
+          user: this.sanitizeUser(user),
+      };
+  } catch (error) {
+      console.log('❌ ERRO no login:', error.message);
+      throw error;
   }
+}
 
-  async validateUser(email: string, password: string): Promise<User | null> {
-    const user = await this.usersService.findByEmail(email);
-    if (!user || !user.password) {
+async validateUser(email: string, password: string): Promise<User | null> {
+  console.log('🔍 DEBUG - Procurando usuário por email:', email);
+
+  try {
+      const user = await this.usersService.findByEmail(email);
+      console.log('🔍 DEBUG - Usuário do banco:', user ? { id: user.id, email: user.email, hasPassword: !!user.password } : null);
+
+      if (!user || !user.password) {
+          console.log('❌ ERRO: Usuário não encontrado ou sem senha');
+          return null;
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      console.log('🔍 DEBUG - Senha válida:', isPasswordValid);
+
+      if (!isPasswordValid) {
+          console.log('❌ ERRO: Senha incorreta');
+          return null;
+      }
+
+      return user;
+  } catch (error) {
+      console.log('❌ ERRO na validação:', error.message);
       return null;
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return null;
-    }
-
-    return user;
   }
+}
 
   async validateOAuthUser(profile: any, provider: 'google' | 'facebook' | 'discord', lang?: string): Promise<User> {
     const email = profile.emails?.[0]?.value || profile.email;

@@ -8,7 +8,13 @@ async function bootstrap() {
 
   // Configuração do CORS
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+    origin: [
+      'http://localhost:3000',  // Frontend local
+      'http://localhost:3001',  // Se estiver usando 3001
+      'http://127.0.0.1:3000',  // IP local
+      'http://127.0.0.1:3001',  // IP local alternativo
+      process.env.FRONTEND_URL || 'http://localhost:3000', // Variável de ambiente
+    ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
@@ -56,5 +62,6 @@ async function bootstrap() {
   console.log(`Application is running on: ${await app.getUrl()}`);
   console.log(`Swagger documentation: ${await app.getUrl()}/api`);
   console.log(`Google OAuth: ${await app.getUrl()}/auth/google`);
+  console.log(`Discord OAuth: ${await app.getUrl()}/auth/discord`);
 }
 bootstrap();

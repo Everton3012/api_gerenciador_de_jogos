@@ -45,7 +45,7 @@ API completa para gerenciamento de campeonatos de jogos, com suporte a múltipla
 - ✅ Testes unitários e E2E
 - ✅ Migrações de banco de dados com TypeORM
 - ✅ Validação de dados com class-validator
-- ✅ Fastify para máxima performance
+- ✅ Express integrado ao NestJS para construção de APIs REST
 
 ---
 
@@ -92,7 +92,7 @@ API completa para gerenciamento de campeonatos de jogos, com suporte a múltipla
 ### Backend
 - [NestJS](https://nestjs.com/) ^10.0.0 - Framework Node.js progressivo
 - [TypeScript](https://www.typescriptlang.org/) ^5.1.3 - Superset JavaScript tipado
-- [Fastify](https://www.fastify.io/) ^4.28.1 - HTTP Server de alta performance
+- [Express](https://expressjs.com/) ^5.0.6 - Framework HTTP para Node.js
 - [TypeORM](https://typeorm.io/) ^0.3.20 - ORM para TypeScript
 - [PostgreSQL](https://www.postgresql.org/) - Banco de dados relacional
 - [Passport](http://www.passportjs.org/) ^0.7.0 - Autenticação middleware
@@ -178,7 +178,7 @@ Para ativar login social, configure as credenciais:
 #### Google OAuth:
 1. Acesse [Google Cloud Console](https://console.cloud.google.com/)
 2. Crie um projeto
-3. Ative a API Google+ 
+3. Ative as APIs de OAuth 2.0 (Google Identity)
 4. Crie credenciais OAuth 2.0
 5. Configure URIs de redirecionamento:
    - `http://localhost:3000/auth/google/callback`
@@ -551,7 +551,7 @@ Este projeto é privado e de uso interno.
 - [Passport.js](http://www.passportjs.org/)
 - [JWT.io](https://jwt.io/)
 - [Swagger](https://swagger.io/)
-- [Fastify](https://www.fastify.io/)
+- [Express](https://expressjs.com/)
 
 ---
 

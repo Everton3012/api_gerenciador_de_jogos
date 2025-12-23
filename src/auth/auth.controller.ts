@@ -1,21 +1,21 @@
 // src/auth/auth.controller.ts
-import { 
-  Controller, 
-  Post, 
-  Body, 
-  Get, 
-  UseGuards, 
-  Req, 
-  Res, 
-  HttpCode, 
-  HttpStatus 
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  UseGuards,
+  Req,
+  Res,
+  HttpCode,
+  HttpStatus
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { 
-  ApiTags, 
-  ApiOperation, 
-  ApiResponse, 
-  ApiBearerAuth 
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -36,14 +36,14 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   @Post('register')
   @ApiOperation({ summary: 'Registrar novo usuário' })
-  @ApiResponse({ 
-    status: 201, 
-    description: 'Usuário criado com sucesso', 
-    type: AuthResponseDto 
+  @ApiResponse({
+    status: 201,
+    description: 'Usuário criado com sucesso',
+    type: AuthResponseDto
   })
   @ApiResponse({ status: 409, description: 'Email já existe' })
   async register(@Body() registerDto: RegisterDto): Promise<AuthResponseDto> {
@@ -53,13 +53,11 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login com email e senha' })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'Login realizado com sucesso', 
-    type: AuthResponseDto 
-  })
+  @ApiResponse({ status: 200, description: 'Login realizado com sucesso' })
+  @ApiResponse({ status: 400, description: 'Dados inválidos' })
   @ApiResponse({ status: 401, description: 'Credenciais inválidas' })
-  async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
+  login(@Body() loginDto: LoginDto) {
+    console.log('🔍 CONTROLLER - Login DTO recebido:', loginDto);
     return this.authService.login(loginDto);
   }
 
@@ -81,9 +79,9 @@ export class AuthController {
   ): Promise<void> {
     try {
       const tokens = await this.authService.validateOAuthLogin(req.user);
-      
+
       const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
-      
+
       res.redirect(
         `${frontendUrl}/auth/callback?access_token=${tokens.access_token}&refresh_token=${tokens.refresh_token}`
       );
@@ -111,9 +109,9 @@ export class AuthController {
   ): Promise<void> {
     try {
       const tokens = await this.authService.validateOAuthLogin(req.user);
-      
+
       const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
-      
+
       res.redirect(
         `${frontendUrl}/auth/callback?access_token=${tokens.access_token}&refresh_token=${tokens.refresh_token}`
       );
@@ -141,9 +139,9 @@ export class AuthController {
   ): Promise<void> {
     try {
       const tokens = await this.authService.validateOAuthLogin(req.user);
-      
+
       const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
-      
+
       res.redirect(
         `${frontendUrl}/auth/callback?access_token=${tokens.access_token}&refresh_token=${tokens.refresh_token}`
       );
