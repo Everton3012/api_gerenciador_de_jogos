@@ -12,6 +12,7 @@ import {
     HttpCode,
     HttpStatus,
 } from '@nestjs/common';
+import { CacheTTL } from '@nestjs/cache-manager';
 import {
     ApiTags,
     ApiOperation,
@@ -24,6 +25,9 @@ import { CreateTeamsManualDto } from './dto/create-teams-manual.dto';
 import { CreateTeamsRandomDto } from './dto/create-teams-random.dto';
 import { UpdateMatchDto } from './dto/update-match.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+
+const CACHE_TTL_MATCHES_LIST = 3 * 60; // 3 minutos em segundos
+const CACHE_TTL_MATCH_DETAIL = 3 * 60; // 3 minutos em segundos
 
 @ApiTags('matches')
 @Controller('matches')
@@ -44,6 +48,7 @@ export class MatchesController {
     @Get()
     @ApiOperation({ summary: 'Listar todas as partidas' })
     @ApiResponse({ status: 200, description: 'Lista de partidas' })
+    @CacheTTL(CACHE_TTL_MATCHES_LIST)
     findAll() {
         return this.matchesService.findAll();
     }
@@ -52,6 +57,7 @@ export class MatchesController {
     @ApiOperation({ summary: 'Obter detalhes de uma partida' })
     @ApiResponse({ status: 200, description: 'Detalhes da partida' })
     @ApiResponse({ status: 404, description: 'Partida não encontrada' })
+    @CacheTTL(CACHE_TTL_MATCH_DETAIL)
     findOne(@Param('id') id: string) {
         return this.matchesService.findOne(id);
     }

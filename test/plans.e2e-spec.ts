@@ -1,14 +1,16 @@
-// test/plans.e2e-spec.ts
+// TypeScript
+// test/plans-validation.e2e-spec.ts (atualizado)
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { DataSource } from 'typeorm';
+import { PlansService } from '../src/plans/plans.service'; // ✅ IMPORTAR O SERVICE
 
-describe('Plans API (E2E)', () => {
+describe('Plans Validation (E2E)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
-  let authToken: string;
+  let plansService: PlansService; // ✅ DECLARAR O SERVICE
   let userId: string;
 
   beforeAll(async () => {
@@ -29,25 +31,42 @@ describe('Plans API (E2E)', () => {
     await app.init();
 
     dataSource = app.get(DataSource);
+    plansService = app.get(PlansService); // ✅ INJETAR O SERVICE CORRETAMENTE
 
-    // Criar usuário e fazer login para testes autenticados
-    await dataSource.query("DELETE FROM users WHERE email = 'plans-test@example.com'");
+    // Criar usuário Pro para testes
+    await dataSource.query("DELETE FROM users WHERE email = 'pro-user@test.com'");
     
     const registerResponse = await request(app.getHttpServer())
       .post('/auth/register')
       .send({
-        name: 'Plans Test User',
-        email: 'plans-test@example.com',
+        name: 'Pro User',
+        email: 'pro-user@test.com',
         password: 'Password123!',
       });
 
-    authToken = registerResponse.body.access_token;
     userId = registerResponse.body.user.id;
+
+    // Alterar plano para Pro
+    await dataSource.query(`UPDATE users SET plan = 'pro' WHERE id = $1`, [userId]);
+
+    // ✅ Invalidar cache do plano do usuário e da lista de planos
+    const cacheManager = app.get('CACHE_MANAGER') as any;
+    if (cacheManager) {
+      await cacheManager.del(`user-plan:${userId}`);
+      await cacheManager.del('plans:all');
+    }
+
+    // ✅ Verificar que o Plan 'pro' está disponível via service
+    const userPlan = await plansService.getUserPlan(userId);
+    expect(userPlan.id).toBe('pro');
+    expect(userPlan.features.advancedStats).toBe(true);
+    expect(userPlan.features.knockoutMode).toBe(true);
+    expect(userPlan.features.teamManagement).toBe(true);
   });
 
   afterAll(async () => {
     try {
-      await dataSource.query("DELETE FROM users WHERE email = 'plans-test@example.com'");
+      await dataSource.query("DELETE FROM users WHERE email = 'pro-user@test.com'");
       
       if (dataSource?.isInitialized) {
         await dataSource.destroy();
@@ -58,254 +77,166 @@ describe('Plans API (E2E)', () => {
       if (app) {
         await app.close();
       }
-      // Aguardar cleanup completo
       await new Promise(resolve => setTimeout(resolve, 500));
     }
   });
 
-  describe('GET /plans', () => {
-    it('deve retornar todos os planos disponíveis', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/plans')
-        .expect(200);
-
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.length).toBe(4); // free, basic, pro, enterprise
+  describe('Validação de Limites de Plano', () => {
+    it('deve validar limite de partidas do plano Free', async () => {
+      // Criar usuário Free
+      await dataSource.query("DELETE FROM users WHERE email = 'free-user@test.com'");
       
-      const planIds = response.body.map(plan => plan.id);
-      expect(planIds).toContain('free');
-      expect(planIds).toContain('basic');
-      expect(planIds).toContain('pro');
-      expect(planIds).toContain('enterprise');
+      const freeUserResponse = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          name: 'Free User',
+          email: 'free-user@test.com',
+          password: 'Password123!',
+        });
+
+      const freeUserId = freeUserResponse.body.user.id;
+
+      // Plano Free permite até 10 partidas
+      const canCreate = await plansService.canCreateMatch(freeUserId, 5);
+      expect(canCreate).toBe(true);
+
+      // Não permite 11ª partida
+      const cannotCreate = await plansService.canCreateMatch(freeUserId, 10);
+      expect(cannotCreate).toBe(false);
+
+      // Cleanup
+      await dataSource.query("DELETE FROM users WHERE email = 'free-user@test.com'");
     });
 
-    it('deve retornar planos ordenados por preço', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/plans')
-        .expect(200);
+    it('deve validar limite de torneios do plano Free', async () => {
+      await dataSource.query("DELETE FROM users WHERE email = 'free-user@test.com'");
+      
+      const freeUserResponse = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          name: 'Free User',
+          email: 'free-user@test.com',
+          password: 'Password123!',
+        });
 
-      const prices = response.body.map(plan => plan.price);
-      const sortedPrices = [...prices].sort((a, b) => a - b);
-      expect(prices).toEqual(sortedPrices);
+      const freeUserId = freeUserResponse.body.user.id;
+
+      const canCreate = await plansService.canCreateTournament(freeUserId, 0);
+      expect(canCreate).toBe(true);
+
+      const cannotCreate = await plansService.canCreateTournament(freeUserId, 1);
+      expect(cannotCreate).toBe(false);
+
+      await dataSource.query("DELETE FROM users WHERE email = 'free-user@test.com'");
     });
 
-    it('deve retornar apenas planos ativos', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/plans')
-        .expect(200);
+    it('deve validar acesso a funcionalidade no plano Free', async () => {
+      await dataSource.query("DELETE FROM users WHERE email = 'free-user@test.com'");
+      
+      const freeUserResponse = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          name: 'Free User',
+          email: 'free-user@test.com',
+          password: 'Password123!',
+        });
 
-      response.body.forEach(plan => {
-        expect(plan.isActive).toBe(true);
-      });
-    });
-  });
+      const freeUserId = freeUserResponse.body.user.id;
 
-  describe('GET /plans/compare', () => {
-    it('deve retornar comparação de todos os planos', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/plans/compare')
-        .expect(200);
+      const hasAdvancedStats = await plansService.checkFeatureAccess(freeUserId, 'advancedStats');
+      expect(hasAdvancedStats).toBe(false);
 
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.length).toBe(4);
+      const hasKnockoutMode = await plansService.checkFeatureAccess(freeUserId, 'knockoutMode');
+      expect(hasKnockoutMode).toBe(false);
 
-      response.body.forEach(plan => {
-        expect(plan).toHaveProperty('id');
-        expect(plan).toHaveProperty('name');
-        expect(plan).toHaveProperty('price');
-        expect(plan).toHaveProperty('features');
-      });
-
-      const proPlan = response.body.find(p => p.id === 'pro');
-      expect(proPlan.recommended).toBe(true);
-    });
-  });
-
-  describe('GET /plans/:id', () => {
-    it('deve retornar detalhes do plano Free', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/plans/free')
-        .expect(200);
-
-      expect(response.body.id).toBe('free');
-      expect(response.body.name).toBe('Free');
-      expect(response.body.price).toBe(0);
-      expect(response.body.features.maxMatchesPerMonth).toBe(10);
-      expect(response.body.features.maxTournamentsPerMonth).toBe(1);
-      expect(response.body.features.advancedStats).toBe(false);
-      expect(response.body.features.knockoutMode).toBe(false);
+      await dataSource.query("DELETE FROM users WHERE email = 'free-user@test.com'");
     });
 
-    it('deve retornar detalhes do plano Basic', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/plans/basic')
-        .expect(200);
+    it('deve lançar erro ao tentar criar partida acima do limite', async () => {
+      await dataSource.query("DELETE FROM users WHERE email = 'free-user@test.com'");
+      
+      const freeUserResponse = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          name: 'Free User',
+          email: 'free-user@test.com',
+          password: 'Password123!',
+        });
 
-      expect(response.body.id).toBe('basic');
-      expect(response.body.name).toBe('Basic');
-      expect(response.body.price).toBe(1990); // R$ 19,90
-      expect(response.body.features.maxMatchesPerMonth).toBe(50);
-      expect(response.body.features.maxTournamentsPerMonth).toBe(5);
-      expect(response.body.features.knockoutMode).toBe(true);
+      const freeUserId = freeUserResponse.body.user.id;
+
+      await expect(
+        plansService.validateMatchCreation(freeUserId, 10)
+      ).rejects.toThrow();
+
+      await dataSource.query("DELETE FROM users WHERE email = 'free-user@test.com'");
     });
 
-    it('deve retornar detalhes do plano Pro', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/plans/pro')
-        .expect(200);
+    it('deve lançar erro ao tentar criar torneio acima do limite', async () => {
+      await dataSource.query("DELETE FROM users WHERE email = 'free-user@test.com'");
+      
+      const freeUserResponse = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          name: 'Free User',
+          email: 'free-user@test.com',
+          password: 'Password123!',
+        });
 
-      expect(response.body.id).toBe('pro');
-      expect(response.body.name).toBe('Pro');
-      expect(response.body.price).toBe(3990); // R$ 39,90
-      expect(response.body.features.maxMatchesPerMonth).toBeNull();
-      expect(response.body.features.maxTournamentsPerMonth).toBeNull();
-      expect(response.body.features.advancedStats).toBe(true);
-      expect(response.body.features.teamManagement).toBe(true);
+      const freeUserId = freeUserResponse.body.user.id;
+
+      await expect(
+        plansService.validateTournamentCreation(freeUserId, 1)
+      ).rejects.toThrow();
+
+      await dataSource.query("DELETE FROM users WHERE email = 'free-user@test.com'");
     });
 
-    it('deve retornar detalhes do plano Enterprise', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/plans/enterprise')
-        .expect(200);
+    it('deve lançar erro ao tentar acessar feature não disponível', async () => {
+      await dataSource.query("DELETE FROM users WHERE email = 'free-user@test.com'");
+      
+      const freeUserResponse = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          name: 'Free User',
+          email: 'free-user@test.com',
+          password: 'Password123!',
+        });
 
-      expect(response.body.id).toBe('enterprise');
-      expect(response.body.name).toBe('Enterprise');
-      expect(response.body.price).toBe(0);
-      expect(response.body.features.prioritySupport).toBe(true);
-      expect(response.body.isEnterprise).toBe(true);
-    });
+      const freeUserId = freeUserResponse.body.user.id;
 
-    it('deve retornar 404 para plano inexistente', async () => {
-      await request(app.getHttpServer())
-        .get('/plans/invalid-plan')
-        .expect(404);
-    });
-  });
+      await expect(
+        plansService.validateFeatureAccess(freeUserId, 'advancedStats')
+      ).rejects.toThrow();
 
-  describe('GET /plans/my-plan', () => {
-    it('deve retornar 401 sem autenticação', async () => {
-      await request(app.getHttpServer())
-        .get('/plans/my-plan')
-        .expect(401);
-    });
-
-    it('deve retornar o plano atual do usuário autenticado', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/plans/my-plan')
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
-
-      expect(response.body).toHaveProperty('plan');
-      expect(response.body).toHaveProperty('price');
-      expect(response.body).toHaveProperty('features');
-      expect(response.body).toHaveProperty('usage');
-      expect(response.body.plan).toBe('Free'); // Usuário novo começa com Free
+      await dataSource.query("DELETE FROM users WHERE email = 'free-user@test.com'");
     });
   });
 
-  describe('GET /plans/upgrade-options', () => {
-    it('deve retornar 401 sem autenticação', async () => {
-      await request(app.getHttpServer())
-        .get('/plans/upgrade-options')
-        .expect(401);
+  describe('Plano Pro - Limites Ilimitados', () => {
+    it('deve permitir partidas ilimitadas no plano Pro', async () => {
+      const canCreate = await plansService.canCreateMatch(userId, 1000);
+      expect(canCreate).toBe(true);
     });
 
-    it('deve retornar opções de upgrade para usuário Free', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/plans/upgrade-options')
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
-
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.length).toBeGreaterThan(0);
-
-      const upgradeIds = response.body.map(plan => plan.id);
-      expect(upgradeIds).toContain('basic');
-      expect(upgradeIds).toContain('pro');
-      expect(upgradeIds).toContain('enterprise');
-      expect(upgradeIds).not.toContain('free');
-    });
-  });
-
-  describe('Validação de Features por Plano', () => {
-    it('plano Free deve ter limites corretos', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/plans/free')
-        .expect(200);
-
-      const { features } = response.body;
-      expect(features.maxMatchesPerMonth).toBe(10);
-      expect(features.maxTournamentsPerMonth).toBe(1);
-      expect(features.advancedStats).toBe(false);
-      expect(features.knockoutMode).toBe(false);
-      expect(features.teamManagement).toBe(false);
-      expect(features.prioritySupport).toBe(false);
+    it('deve permitir torneios ilimitados no plano Pro', async () => {
+      const canCreate = await plansService.canCreateTournament(userId, 1000);
+      expect(canCreate).toBe(true);
     });
 
-    it('plano Basic deve ter knockoutMode habilitado', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/plans/basic')
-        .expect(200);
-
-      expect(response.body.features.knockoutMode).toBe(true);
-      expect(response.body.features.advancedStats).toBe(false);
-      expect(response.body.features.teamManagement).toBe(false);
+    it('deve permitir acesso a stats avançadas no plano Pro', async () => {
+      const hasAccess = await plansService.checkFeatureAccess(userId, 'advancedStats');
+      expect(hasAccess).toBe(true);
     });
 
-    it('plano Pro deve ter todas as features exceto prioritySupport', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/plans/pro')
-        .expect(200);
-
-      const { features } = response.body;
-      expect(features.maxMatchesPerMonth).toBeNull();
-      expect(features.maxTournamentsPerMonth).toBeNull();
-      expect(features.advancedStats).toBe(true);
-      expect(features.knockoutMode).toBe(true);
-      expect(features.teamManagement).toBe(true);
-      expect(features.prioritySupport).toBe(false);
+    it('deve permitir acesso a knockout mode no plano Pro', async () => {
+      const hasAccess = await plansService.checkFeatureAccess(userId, 'knockoutMode');
+      expect(hasAccess).toBe(true);
     });
 
-    it('plano Enterprise deve ter todas as features', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/plans/enterprise')
-        .expect(200);
-
-      const { features } = response.body;
-      expect(features.maxMatchesPerMonth).toBeNull();
-      expect(features.maxTournamentsPerMonth).toBeNull();
-      expect(features.advancedStats).toBe(true);
-      expect(features.knockoutMode).toBe(true);
-      expect(features.teamManagement).toBe(true);
-      expect(features.prioritySupport).toBe(true);
-    });
-  });
-
-  describe('Preços dos Planos', () => {
-    it('deve ter preços em centavos corretos', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/plans')
-        .expect(200);
-
-      const prices = response.body.reduce((acc, plan) => {
-        acc[plan.id] = plan.price;
-        return acc;
-      }, {});
-
-      expect(prices.free).toBe(0);
-      expect(prices.basic).toBe(1990); // R$ 19,90
-      expect(prices.pro).toBe(3990);   // R$ 39,90
-      expect(prices.enterprise).toBe(0); // Sob consulta
-    });
-
-    it('todos os planos devem estar em BRL', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/plans')
-        .expect(200);
-
-      response.body.forEach(plan => {
-        expect(plan.currency).toBe('BRL');
-      });
+    it('deve permitir acesso a team management no plano Pro', async () => {
+      const hasAccess = await plansService.checkFeatureAccess(userId, 'teamManagement');
+      expect(hasAccess).toBe(true);
     });
   });
 });

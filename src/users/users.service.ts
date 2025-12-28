@@ -1,6 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject
+  ,NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 import { I18nService } from 'nestjs-i18n';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
@@ -14,6 +17,7 @@ export class UsersService {
     @InjectRepository(User)
     private usersRepository: Repository<User>,
     private readonly i18n: I18nService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) { }
 
   async create(createUserDto: CreateUserDto, lang?: string): Promise<User> {
@@ -46,13 +50,29 @@ export class UsersService {
   }
 
   async findAll(): Promise<User[]> {
-    return await this.usersRepository.find({
+    const cacheKey = 'users:all';
+    const cachedUsers = await this.cacheManager.get<User[]>(cacheKey);
+    
+    if (cachedUsers) {
+      return cachedUsers;
+    }
+    const users = await this.usersRepository.find({
       where: { isActive: true },
       order: { createdAt: 'DESC' },
     });
+
+    await this.cacheManager.set(cacheKey, users);
+    return users;
   }
 
   async findOne(id: string, lang?: string): Promise<User> {
+    const cacheKey = `users:${id}`;
+    const cachedUser = await this.cacheManager.get<User>(cacheKey);
+    
+    if (cachedUser) {
+      return cachedUser;
+    }
+
     const user = await this.usersRepository.findOne({
       where: {
         id,
@@ -68,6 +88,8 @@ export class UsersService {
         }),
       );
     }
+
+    await this.cacheManager.set(cacheKey, user);
     return user;
   }
 
@@ -90,17 +112,28 @@ export class UsersService {
     }
 
     Object.assign(user, updateUserDto);
-    return await this.usersRepository.save(user);
+    const updatedUser = await this.usersRepository.save(user);
+
+    await this.cacheManager.del(`users:${id}`);
+    await this.cacheManager.del('users:all');
+
+    return updatedUser;
   }
 
   async remove(id: string, lang?: string): Promise<void> {
     const user = await this.findOne(id, lang);
     await this.usersRepository.softDelete(id);
+
+    await this.cacheManager.del(`users:${id}`);
+    await this.cacheManager.del('users:all');
   }
 
   async hardDelete(id: string, lang?: string): Promise<void> {
     const user = await this.findOne(id, lang);
     await this.usersRepository.remove(user);
+
+    await this.cacheManager.del(`users:${id}`);
+    await this.cacheManager.del('users:all');
   }
 
   // Atualizar plano para qualquer nível
@@ -117,7 +150,12 @@ export class UsersService {
     }
 
     user.plan = newPlan;
-    return await this.usersRepository.save(user);
+    const updatedUser = await this.usersRepository.save(user);
+
+    await this.cacheManager.del(`users:${id}`);
+    await this.cacheManager.del('users:all');
+
+    return updatedUser;
   }
 
   // Manter métodos legados para compatibilidade
@@ -192,6 +230,8 @@ export class UsersService {
 
     user.password = await bcrypt.hash(newPassword, 10);
     await this.usersRepository.save(user);
+    
+    await this.cacheManager.del(`users:${id}`);
   }
 
   // Verificar se usuário pode executar ação baseada no plano

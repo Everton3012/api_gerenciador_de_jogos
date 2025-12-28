@@ -12,6 +12,7 @@ import {
   HttpCode,
   HttpStatus
 } from '@nestjs/common';
+import { CacheTTL } from '@nestjs/cache-manager';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
 import { I18nLang, I18nService } from 'nestjs-i18n';
 import { UsersService } from './users.service';
@@ -21,6 +22,10 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from './entities/user.entity';
+
+const CACHE_TTL_USERS_LIST = 300; // 5 minutos
+const CACHE_TTL_USER_PROFILE = 180; // 3 minutos
+const CACHE_TTL_USER_DETAIL = 300; // 5 minutos
 
 @ApiTags('Usuários')
 @Controller('users')
@@ -34,7 +39,7 @@ import { User } from './entities/user.entity';
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
-    private readonly i18n: I18nService, // ✅ Injetado aqui
+    private readonly i18n: I18nService,
   ) { }
 
   @Post()
@@ -55,6 +60,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Listar todos os usuários' })
   @ApiResponse({ status: 200, description: 'Lista de usuários retornada com sucesso' })
   @ApiResponse({ status: 401, description: 'Não autenticado' })
+  @CacheTTL(CACHE_TTL_USERS_LIST) 
   findAll() {
     return this.usersService.findAll();
   }
@@ -65,6 +71,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Obter perfil do usuário autenticado' })
   @ApiResponse({ status: 200, description: 'Perfil do usuário retornado com sucesso' })
   @ApiResponse({ status: 401, description: 'Não autenticado' })
+  @CacheTTL(CACHE_TTL_USER_PROFILE) 
   getProfile(@CurrentUser() user: User) {
     return user;
   }
@@ -76,6 +83,7 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Usuário encontrado' })
   @ApiResponse({ status: 404, description: 'Usuário não encontrado' })
   @ApiResponse({ status: 401, description: 'Não autenticado' })
+  @CacheTTL(CACHE_TTL_USER_DETAIL) 
   findOne(
     @Param('id') id: string,
     @I18nLang() lang: string,

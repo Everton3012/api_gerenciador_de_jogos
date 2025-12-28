@@ -3,9 +3,12 @@ import {
     Injectable,
     NotFoundException,
     BadRequestException,
+    Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 import { I18nService } from 'nestjs-i18n';
 import { Match } from './entities/match.entity';
 import { Team } from './entities/team.entity';
@@ -14,6 +17,9 @@ import { CreateMatchDto } from './dto/create-match.dto';
 import { CreateTeamsManualDto } from './dto/create-teams-manual.dto';
 import { UpdateMatchDto } from './dto/update-match.dto';
 import { MatchStatus } from './enums';
+
+const CACHE_TTL_MATCHES_LIST = 3 * 60; // 3 minutos em segundos
+const CACHE_TTL_MATCH_DETAIL = 3 * 60; // 3 minutos em segundos
 
 @Injectable()
 export class MatchesService {
@@ -25,6 +31,7 @@ export class MatchesService {
         @InjectRepository(User)
         private usersRepository: Repository<User>,
         private readonly i18n: I18nService,
+        @Inject(CACHE_MANAGER) private cacheManager: Cache,
     ) { }
 
     async create(createMatchDto: CreateMatchDto, createdById: string, lang?: string): Promise<Match> {
@@ -47,17 +54,36 @@ export class MatchesService {
             status: MatchStatus.WAITING_TEAMS,
         });
 
+        await this.cacheManager.del('matches:all');
+
         return this.matchesRepository.save(match);
     }
 
     async findAll(): Promise<Match[]> {
-        return this.matchesRepository.find({
+        const cacheKey = 'matches:all';
+        const cachedMatches = await this.cacheManager.get<Match[]>(cacheKey);
+        
+        if (cachedMatches) {
+            return cachedMatches;
+        }
+
+        const matches = await this.matchesRepository.find({
             relations: ['createdBy', 'players', 'teams', 'teams.players'],
             order: { createdAt: 'DESC' },
         });
+
+        await this.cacheManager.set(cacheKey, matches, CACHE_TTL_MATCHES_LIST);
+        return matches;
     }
 
     async findOne(id: string, lang?: string): Promise<Match> {
+        const cacheKey = `matches:${id}`;
+        const cachedMatch = await this.cacheManager.get<Match>(cacheKey);
+        
+        if (cachedMatch) {
+            return cachedMatch;
+        }
+
         const match = await this.matchesRepository.findOne({
             where: { id },
             relations: ['createdBy', 'players', 'teams', 'teams.players'],
@@ -69,18 +95,28 @@ export class MatchesService {
             );
         }
 
+        await this.cacheManager.set(cacheKey, match, CACHE_TTL_MATCH_DETAIL);
         return match;
     }
+
 
     async update(id: string, updateMatchDto: UpdateMatchDto, lang?: string): Promise<Match> {
         const match = await this.findOne(id, lang);
         Object.assign(match, updateMatchDto);
-        return this.matchesRepository.save(match);
+        const updatedMatch = this.matchesRepository.save(match);
+
+        await this.cacheManager.del(`matches:${id}`);
+        await this.cacheManager.del('matches:all');
+
+        return updatedMatch;
     }
 
     async remove(id: string, lang?: string): Promise<void> {
         const match = await this.findOne(id, lang);
         await this.matchesRepository.remove(match);
+
+        await this.cacheManager.del(`matches:${id}`);
+        await this.cacheManager.del('matches:all');
     }
 
     async createTeamsManual(
@@ -99,7 +135,7 @@ export class MatchesService {
             );
         }
 
-        // ✅ Verificar teams via query RAW
+        // Verificar teams via query RAW
         const existingTeamsResult = await this.teamsRepository.query(
             `SELECT COUNT(*) as count FROM teams WHERE "matchId" = $1`,
             [match.id]
@@ -150,7 +186,7 @@ export class MatchesService {
             );
         }
 
-        // ✅ CRIAR EQUIPES USANDO QUERY RAW
+        // CRIAR EQUIPES USANDO QUERY RAW
         const teams: Team[] = [];
         for (const teamDto of createTeamsDto.teams) {
             // 1. Inserir team diretamente no banco
@@ -187,6 +223,9 @@ export class MatchesService {
 
         match.status = MatchStatus.IN_PROGRESS;
         await this.matchesRepository.save(match);
+
+        await this.cacheManager.del(`matches:${matchId}`);
+        await this.cacheManager.del('matches:all');
 
         return teams;
     }
@@ -278,6 +317,8 @@ export class MatchesService {
         match.status = MatchStatus.IN_PROGRESS;
         await this.matchesRepository.save(match);
 
+        await this.cacheManager.del(`matches:${matchId}`);
+        await this.cacheManager.del('matches:all');
 
         return teams;
     }

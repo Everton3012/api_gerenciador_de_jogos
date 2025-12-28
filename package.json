@@ -31,9 +31,10 @@
     "test:e2e:debug": "jest --config ./test/jest-e2e.json --detectOpenHandles",
     "test:e2e:full": "jest --config ./test/jest-e2e.json --coverage --detectOpenHandles --forceExit",
     "test:e2e:ci": "jest --config ./test/jest-e2e.json --coverage --maxWorkers=2 --forceExit",
-     "test:e2e:cov:open": "npm run test:e2e:cov && start coverage-e2e/index.html"
+    "test:e2e:cov:open": "npm run test:e2e:cov && start coverage-e2e/index.html"
   },
   "dependencies": {
+    "@nestjs/cache-manager": "^3.1.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
@@ -45,6 +46,7 @@
     "@nestjs/swagger": "^11.2.3",
     "@nestjs/typeorm": "^11.0.0",
     "bcrypt": "^6.0.0",
+    "cache-manager": "^7.2.7",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
     "express": "^5.2.1",

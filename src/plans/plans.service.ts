@@ -1,11 +1,19 @@
 // src/plans/plans.service.ts
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 import { I18nService } from 'nestjs-i18n';
 import { Plan } from './entities/plan.entity';
 import { User } from '../users/entities/user.entity';
 import { UserPlan } from '../users/enums';
+
+const CACHE_TTL_PLANS_LIST = 365 * 24 * 60 * 60; // 1 ano em segundos
+const CACHE_TTL_PLAN_DETAIL = 365 * 24 * 60 * 60; // 1 ano em segundos
+const CACHE_TTL_USER_PLAN = 30 * 24 * 60 * 60; // 30 dias em segundos
+const CACHE_TTL_PLANS_COMPARISON = 365 * 24 * 60 * 60; // 1 ano em segundos
+const CACHE_TTL_UPGRADE_OPTIONS = 7 * 24 * 60 * 60; // 7 dias em segundos
 
 @Injectable()
 export class PlansService {
@@ -15,16 +23,32 @@ export class PlansService {
         @InjectRepository(User)
         private usersRepository: Repository<User>,
         private readonly i18n: I18nService,
+        @Inject(CACHE_MANAGER) private cacheManager: Cache,
     ) { }
 
     async findAll(): Promise<Plan[]> {
-        return this.plansRepository.find({
+        const cacheKey = 'plans:all';
+        const cachedPlans = await this.cacheManager.get<Plan[]>(cacheKey);
+        if (cachedPlans) {
+            return cachedPlans;
+        }
+
+        const plans = await this.plansRepository.find({
             where: { isActive: true },
             order: { price: 'ASC' },
         });
-    }
 
+        await this.cacheManager.set(cacheKey, plans, CACHE_TTL_PLANS_LIST);
+        return plans;
+    }
     async findOne(id: string, lang?: string): Promise<Plan> {
+        const cacheKey = `plans:${id}`;
+        const cachedPlan = await this.cacheManager.get<Plan>(cacheKey);
+
+        if (cachedPlan) {
+            return cachedPlan;
+        }
+
         const plan = await this.plansRepository.findOne({
             where: { id, isActive: true },
         });
@@ -38,10 +62,18 @@ export class PlansService {
             );
         }
 
+        await this.cacheManager.set(cacheKey, plan, CACHE_TTL_PLAN_DETAIL);
         return plan;
     }
 
     async getUserPlan(userId: string, lang?: string): Promise<Plan> {
+        const cacheKey = `user-plan:${userId}`;
+        const cachedPlan = await this.cacheManager.get<Plan>(cacheKey);
+
+        if (cachedPlan) {
+            return cachedPlan;
+        }
+
         const user = await this.usersRepository.findOne({
             where: { id: userId },
             select: ['id', 'plan'],
@@ -56,7 +88,9 @@ export class PlansService {
             );
         }
 
-        return this.findOne(user.plan, lang);
+        const plan = await this.findOne(user.plan, lang);
+        await this.cacheManager.set(cacheKey, plan, CACHE_TTL_USER_PLAN);
+        return plan;
     }
 
     async canCreateMatch(userId: string, currentMatchesThisMonth: number, lang?: string): Promise<boolean> {
@@ -183,18 +217,35 @@ export class PlansService {
         features: any;
         recommended?: boolean;
     }>> {
+        const cacheKey = 'plans:compare';
+        const cachedComparison = await this.cacheManager.get<any[]>(cacheKey);
+
+        if (cachedComparison) {
+            return cachedComparison;
+        }
+
         const plans = await this.findAll();
 
-        return plans.map((plan) => ({
+        const comparison = plans.map((plan) => ({
             id: plan.id,
             name: plan.name,
             price: plan.price,
             features: plan.features,
             recommended: plan.id === UserPlan.PRO,
         }));
+
+        await this.cacheManager.set(cacheKey, comparison, CACHE_TTL_PLANS_COMPARISON);
+        return comparison;
     }
 
     async getUpgradeOptions(userId: string, lang?: string): Promise<Plan[]> {
+        const cacheKey = `user-upgrade-options:${userId}`;
+        const cachedOptions = await this.cacheManager.get<Plan[]>(cacheKey);
+
+        if (cachedOptions) {
+            return cachedOptions;
+        }
+
         const currentPlan = await this.getUserPlan(userId, lang);
         const allPlans = await this.findAll();
 
@@ -208,9 +259,12 @@ export class PlansService {
         const currentPlanOrder = planOrder[currentPlan.id];
 
         // Retornar planos superiores ao atual
-        return allPlans.filter(plan => {
+        const upgradeOptions = allPlans.filter(plan => {
             const planOrderValue = planOrder[plan.id];
             return planOrderValue > currentPlanOrder;
         });
+
+        await this.cacheManager.set(cacheKey, upgradeOptions, CACHE_TTL_UPGRADE_OPTIONS);
+        return upgradeOptions;
     }
 }

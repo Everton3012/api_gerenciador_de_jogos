@@ -16,7 +16,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private readonly i18n: I18nService,
-  ) {}
+  ) { }
 
   async register(registerDto: RegisterDto, lang?: string) {
     // Verifica se email já existe
@@ -39,68 +39,52 @@ export class AuthService {
     };
   }
 
-// src/auth/auth.service.ts
-async login(loginDto: LoginDto, lang?: string) {
-  console.log('🔍 DEBUG - Tentativa de login:', loginDto.email);
-  console.log('🔍 DEBUG - Dados recebidos:', { email: loginDto.email, hasPassword: !!loginDto.password });
-
-  try {
+  async login(loginDto: LoginDto, lang?: string) {
+    try {
       // Valida usuário
       const user = await this.validateUser(loginDto.email, loginDto.password);
-      console.log('🔍 DEBUG - Usuário encontrado:', user ? 'SIM' : 'NÃO');
 
       if (!user) {
-          console.log('❌ ERRO: Credenciais inválidas');
-          throw new UnauthorizedException(
-              await this.i18n.translate('auth.INVALID_CREDENTIALS', { lang }),
-          );
+        throw new UnauthorizedException(
+          await this.i18n.translate('auth.INVALID_CREDENTIALS', { lang }),
+        );
       }
-
-      console.log('✅ Usuário válido, gerando tokens...');
 
       // Gera tokens
       const tokens = await this.generateTokens(user);
 
       return {
-          ...tokens,
-          user: this.sanitizeUser(user),
+        ...tokens,
+        user: this.sanitizeUser(user),
       };
-  } catch (error) {
-      console.log('❌ ERRO no login:', error.message);
+    } catch (error) {
       throw error;
+    }
   }
-}
 
-async validateUser(email: string, password: string): Promise<User | null> {
-  console.log('🔍 DEBUG - Procurando usuário por email:', email);
+  async validateUser(email: string, password: string): Promise<User | null> {
 
-  try {
+    try {
       const user = await this.usersService.findByEmail(email);
-      console.log('🔍 DEBUG - Usuário do banco:', user ? { id: user.id, email: user.email, hasPassword: !!user.password } : null);
 
       if (!user || !user.password) {
-          console.log('❌ ERRO: Usuário não encontrado ou sem senha');
-          return null;
+        return null;
       }
 
       const isPasswordValid = await bcrypt.compare(password, user.password);
-      console.log('🔍 DEBUG - Senha válida:', isPasswordValid);
-
       if (!isPasswordValid) {
-          console.log('❌ ERRO: Senha incorreta');
-          return null;
+        return null;
       }
 
       return user;
-  } catch (error) {
-      console.log('❌ ERRO na validação:', error.message);
+    } catch (error) {
       return null;
+    }
   }
-}
 
   async validateOAuthUser(profile: any, provider: 'google' | 'facebook' | 'discord', lang?: string): Promise<User> {
     const email = profile.emails?.[0]?.value || profile.email;
-    
+
     if (!email) {
       throw new UnauthorizedException(
         await this.i18n.translate('auth.EMAIL_NOT_PROVIDED', { lang }),
@@ -115,12 +99,12 @@ async validateUser(email: string, password: string): Promise<User | null> {
       if (!user.provider || user.provider === UserProvider.LOCAL) {
         // Mapeia string para enum
         const userProvider = this.mapProviderToEnum(provider);
-        
+
         // Atualiza apenas campos permitidos
         await this.usersService.update(user.id, {
           avatarUrl: profile.photos?.[0]?.value || profile.picture || profile.avatarUrl || null,
         }, lang);
-        
+
         // Atualiza provider e providerId manualmente
         user.provider = userProvider;
         user.providerId = profile.id || profile.providerId;
@@ -129,7 +113,7 @@ async validateUser(email: string, password: string): Promise<User | null> {
     } else {
       // Cria novo usuário com enum correto
       const userProvider = this.mapProviderToEnum(provider);
-      
+
       user = await this.usersService.create({
         name: profile.displayName || profile.name || profile.username || 'Usuário',
         email,
@@ -151,7 +135,7 @@ async validateUser(email: string, password: string): Promise<User | null> {
     if (!user) {
       // Criar novo usuário se não existir
       const userProvider = this.mapProviderToEnum(provider);
-      
+
       user = await this.usersService.create({
         name: profile.username || profile.displayName || profile.name || 'Usuário',
         email: profile.email,
@@ -166,7 +150,7 @@ async validateUser(email: string, password: string): Promise<User | null> {
       await this.usersService.update(user.id, {
         avatarUrl: profile.avatarUrl,
       }, lang);
-      
+
       user.provider = this.mapProviderToEnum(provider);
       user.providerId = profile.providerId;
     }
@@ -231,7 +215,7 @@ async validateUser(email: string, password: string): Promise<User | null> {
       facebook: UserProvider.FACEBOOK,
       discord: UserProvider.DISCORD,
     };
-    
+
     return providerMap[provider] || UserProvider.LOCAL;
   }
 }
